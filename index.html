@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StyleMatch AI</title>
+
+<!-- MediaPipe -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+
+<style>
+body {
+  margin: 0;
+  font-family: 'Helvetica Neue', sans-serif;
+  background: #111;
+  color: white;
+  text-align: center;
+}
+
+header {
+  padding: 20px;
+  font-size: 22px;
+  letter-spacing: 2px;
+}
+
+.card {
+  background: #1c1c1c;
+  margin: 20px;
+  padding: 20px;
+  border-radius: 20px;
+}
+
+input, button {
+  padding: 12px;
+  border-radius: 30px;
+  border: none;
+  margin: 8px;
+}
+
+button {
+  background: white;
+  color: black;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+video {
+  width: 90%;
+  max-width: 400px;
+  border-radius: 20px;
+}
+
+#result {
+  display: none;
+}
+</style>
+</head>
+
+<body>
+
+<header>STYLEMATCH AI</header>
+
+<div id="login" class="card">
+  <h3>Login</h3>
+  <input type="text" id="username" placeholder="Enter your name">
+  <br>
+  <button onclick="startApp()">Enter</button>
+</div>
+
+<div id="app" style="display:none;">
+  <div class="card">
+    <h3>Scan Your Body</h3>
+    <video id="video" autoplay playsinline></video>
+    <br>
+    <button onclick="analyzeBody()">Analyze Shape</button>
+  </div>
+
+  <div id="result" class="card"></div>
+</div>
+
+<script>
+let pose;
+let camera;
+let latestResults;
+
+function startApp() {
+  const name = document.getElementById("username").value;
+  if (!name) return alert("Enter your name");
+
+  document.getElementById("login").style.display = "none";
+  document.getElementById("app").style.display = "block";
+
+  initCamera();
+}
+
+function initCamera() {
+  const videoElement = document.getElementById("video");
+
+  pose = new Pose({
+    locateFile: (file) =>
+      https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}
+  });
+
+  pose.setOptions({
+    modelComplexity: 1,
+    smoothLandmarks: true,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5
+  });
+
+  pose.onResults(results => {
+    latestResults = results;
+  });
+
+  camera = new Camera(videoElement, {
+    onFrame: async () => {
+      await pose.send({ image: videoElement });
+    },
+    width: 640,
+    height: 480
+  });
+
+  camera.start();
+}
+
+function analyzeBody() {
+  if (!latestResults || !latestResults.poseLandmarks) {
+    return alert("Stand fully in frame.");
+  }
+
+  const lm = latestResults.poseLandmarks;
+
+  const shoulderWidth = Math.abs(lm[11].x - lm[12].x);
+  const hipWidth = Math.abs(lm[23].x - lm[24].x);
+
+  let shape;
+
+  if (Math.abs(shoulderWidth - hipWidth) < 0.05) {
+    shape = "Rectangle";
+  } else if (shoulderWidth > hipWidth + 0.05) {
+    shape = "Inverted Triangle";
+  } else if (hipWidth > shoulderWidth + 0.05) {
+    shape = "Pear";
+  } else {
+    shape = "Hourglass";
+  }
+
+  showResult(shape);
+}
+
+function showResult(shape) {
+  const result = document.getElementById("result");
+
+  const styles = {
+    "Rectangle": "Add belts, layered outfits, peplum tops.",
+    "Inverted Triangle": "Wide-leg pants, flowy skirts.",
+    "Pear": "Statement tops, A-line skirts.",
+    "Hourglass": "Wrap dresses, high-waisted jeans."
+  };
+
+  const links = {
+    "Rectangle": "https://www.asos.com/women/tops/peplum-tops/",
+    "Inverted Triangle": "https://www.zalora.com.my/women-wide-leg-pants/",
+    "Pear": "https://www.zalora.com.my/women-off-shoulder-top/",
+    "Hourglass": "https://www.zalora.com.my/women-wrap-dress/"
+  };
+
+  result.innerHTML = `
+    <h2>Your Shape: ${shape}</h2>
+    <p>${styles[shape]}</p>
+    <a href="${links[shape]}" target="_blank">
+      <button>Shop Recommended Pieces</button>
+    </a>
+  `;
+
+  result.style.display = "block";
+}
+</script>
+
+</body>
+</html>
